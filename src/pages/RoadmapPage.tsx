@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   CalendarDays,
   GitCompare,
+  Wand2,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { CAREER_LIBRARY } from "../data/careerEngine";
@@ -79,6 +80,9 @@ export default function RoadmapPage() {
         <div className="flex flex-wrap gap-3 mt-6">
           <Link to="/compare" className="btn-secondary text-sm">
             <GitCompare className="w-4 h-4" /> Compare Careers
+          </Link>
+          <Link to={`/simulate/${career.id}`} className="btn-secondary text-sm">
+            <Wand2 className="w-4 h-4" /> What If I Choose This?
           </Link>
           <Link to={`/action-plan/${career.id}`} className="btn-primary text-sm">
             <CalendarDays className="w-4 h-4" /> 30-Day Action Plan

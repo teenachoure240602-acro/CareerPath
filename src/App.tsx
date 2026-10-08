@@ -9,6 +9,7 @@ import ResultsPage from "./pages/ResultsPage";
 import RoadmapPage from "./pages/RoadmapPage";
 import ComparePage from "./pages/ComparePage";
 import ActionPlanPage from "./pages/ActionPlanPage";
+import CareerSimulationPage from "./pages/CareerSimulationPage";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/roadmap/:careerId" element={<RoadmapPage />} />
             <Route path="/compare" element={<ComparePage />} />
             <Route path="/action-plan/:careerId" element={<ActionPlanPage />} />
+            <Route path="/simulate/:careerId" element={<CareerSimulationPage />} />
           </Routes>
         </main>
         <Footer />
