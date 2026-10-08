@@ -1,8 +1,5 @@
 import { useParams, Link } from "react-router-dom";
 import {
-  Code2,
-  BrainCircuit,
-  Database,
   Sparkles,
   ArrowLeft,
   TrendingUp,
@@ -19,13 +16,8 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { CAREER_LIBRARY } from "../data/careerEngine";
+import { getCareerIcon } from "../utils/careerIcons";
 import type { CareerPath } from "../types";
-
-const ICON_MAP: Record<string, typeof Code2> = {
-  Code2,
-  BrainCircuit,
-  Database,
-};
 
 function getCareer(id: string): CareerPath | null {
   const template = CAREER_LIBRARY[id];
@@ -49,7 +41,7 @@ export default function RoadmapPage() {
     );
   }
 
-  const Icon = ICON_MAP[career.icon] || Sparkles;
+  const Icon = getCareerIcon(career.icon);
   const hasMatchData = analysisCareer !== undefined;
 
   return (

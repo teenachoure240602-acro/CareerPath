@@ -1,14 +1,9 @@
 import { Link } from "react-router-dom";
-import { GitCompare, Sparkles, Trophy, ArrowRight, Code2, BrainCircuit, Database } from "lucide-react";
+import { GitCompare, Sparkles, Trophy, ArrowRight } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { CAREER_LIBRARY } from "../data/careerEngine";
+import { getCareerIcon } from "../utils/careerIcons";
 import type { CareerPath } from "../types";
-
-const ICON_MAP: Record<string, typeof Code2> = {
-  Code2,
-  BrainCircuit,
-  Database,
-};
 
 export default function ComparePage() {
   const { analysis } = useApp();
@@ -64,7 +59,7 @@ export default function ComparePage() {
             <tr className="border-b border-white/10">
               <th className="text-left p-5 text-sm font-semibold text-navy-300 w-1/6">Attribute</th>
               {careers.map((career) => {
-                const Icon = ICON_MAP[career.icon] || Sparkles;
+                const Icon = getCareerIcon(career.icon);
                 const isBest = career.id === bestMatch.id && analysis;
                 return (
                   <th key={career.id} className="text-left p-5 relative">
@@ -123,7 +118,7 @@ export default function ComparePage() {
       {/* Mobile Cards */}
       <div className="lg:hidden space-y-6">
         {careers.map((career, i) => {
-          const Icon = ICON_MAP[career.icon] || Sparkles;
+          const Icon = getCareerIcon(career.icon);
           const isBest = career.id === bestMatch.id && analysis;
           return (
             <div

@@ -17,7 +17,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { generateAnalysis } from "../data/careerEngine";
+import { generateCareerAnalysisWithFallback } from "../services/aiService";
 import type {
   StudentProfile,
   YearOfStudy,
@@ -86,8 +86,11 @@ export default function ProfileForm() {
     setInterestInput("");
   };
 
-  const handleSubmit = () => {
+  const [aiError, setAiError] = useState(false);
+
+  const handleSubmit = async () => {
     setAnalyzing(true);
+    setAiError(false);
     const profile: StudentProfile = {
       name: name.trim(),
       year: year as YearOfStudy,
@@ -99,16 +102,37 @@ export default function ProfileForm() {
       weeklyHours: weeklyHours as WeeklyHours,
     };
 
-    setTimeout(() => {
-      const result = generateAnalysis(profile);
+    try {
+      const result = await generateCareerAnalysisWithFallback(profile);
       setProfile(profile);
       setAnalysis(result);
       navigate("/results");
-    }, 2800);
+    } catch (err) {
+      console.error("Career analysis failed:", err);
+      setAiError(true);
+      setAnalyzing(false);
+    }
   };
 
   if (analyzing) {
     return <AnalyzingScreen name={name} />;
+  }
+
+  if (aiError) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 text-center animate-fade-in">
+        <div className="w-14 h-14 rounded-2xl bg-red-500/15 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+          <X className="w-7 h-7 text-red-400" />
+        </div>
+        <h2 className="font-display font-bold text-xl text-white mb-2">Analysis Failed</h2>
+        <p className="text-navy-300 text-sm mb-6">
+          Something went wrong while analyzing your profile. Please try again.
+        </p>
+        <button onClick={() => { setAiError(false); setStep(3); }} className="btn-primary">
+          Try Again
+        </button>
+      </div>
+    );
   }
 
   const progress = ((step + 1) / STEPS.length) * 100;

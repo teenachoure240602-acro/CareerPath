@@ -1,17 +1,12 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Code2, BrainCircuit, Database, Sparkles, TrendingUp, AlertCircle } from "lucide-react";
+import { ArrowRight, TrendingUp, AlertCircle } from "lucide-react";
 import type { CareerPath } from "../types";
 import { useApp } from "../context/AppContext";
-
-const ICON_MAP: Record<string, typeof Code2> = {
-  Code2,
-  BrainCircuit,
-  Database,
-};
+import { getCareerIcon } from "../utils/careerIcons";
 
 export default function CareerCard({ career, rank }: { career: CareerPath; rank: number }) {
   const { setProfile, analysis } = useApp();
-  const Icon = ICON_MAP[career.icon] || Sparkles;
+  const Icon = getCareerIcon(career.icon);
   const isBestMatch = rank === 0;
 
   return (

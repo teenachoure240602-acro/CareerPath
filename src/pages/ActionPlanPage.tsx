@@ -2,9 +2,6 @@ import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
-  Code2,
-  BrainCircuit,
-  Database,
   Sparkles,
   Target,
   CheckSquare,
@@ -13,14 +10,8 @@ import {
   Wrench,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { CAREER_LIBRARY } from "../data/careerEngine";
+import { getCareerIcon } from "../utils/careerIcons";
 import type { CareerPath, WeekPlan } from "../types";
-
-const ICON_MAP: Record<string, typeof Code2> = {
-  Code2,
-  BrainCircuit,
-  Database,
-};
 
 const WEEK_COLORS = [
   "from-navy-500 to-navy-700",
@@ -34,8 +25,7 @@ export default function ActionPlanPage() {
   const { analysis } = useApp();
 
   const analysisCareer = analysis?.careers.find((c) => c.id === careerId);
-  const template = careerId ? CAREER_LIBRARY[careerId] : null;
-  const career = analysisCareer || template;
+  const career = analysisCareer || null;
 
   if (!career) {
     return (
@@ -47,7 +37,7 @@ export default function ActionPlanPage() {
   }
 
   const fullCareer = career as CareerPath;
-  const Icon = ICON_MAP[fullCareer.icon] || Sparkles;
+  const Icon = getCareerIcon(fullCareer.icon);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fade-in">

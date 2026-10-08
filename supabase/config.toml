@@ -1,0 +1,2 @@
+[functions.generate-career-analysis]
+verify_jwt = false
