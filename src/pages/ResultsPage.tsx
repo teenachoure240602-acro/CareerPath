@@ -1,10 +1,51 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, GitCompare, CalendarDays, User, GraduationCap, Code, Target, Clock, Layers, Gauge, FlaskConical, ArrowRight } from "lucide-react";
+import { Sparkles, GitCompare, CalendarDays, User, GraduationCap, Code, Target, Clock, Layers, Gauge, FlaskConical, ArrowRight, Lightbulb, Loader2, AlertCircle, CheckCircle2, Wrench, Rocket, BookOpen, MessageSquare } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import CareerCard from "../components/CareerCard";
+import { fetchCareerInsight, type CareerInsight } from "../services/insightService";
 
 export default function ResultsPage() {
   const { analysis, isDemo } = useApp();
+  const [insight, setInsight] = useState<CareerInsight | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState<string | null>(null);
+
+  async function handleGetInsight() {
+    if (!analysis) return;
+    const topCareer = analysis.careers[0];
+    setInsightLoading(true);
+    setInsightError(null);
+    setInsight(null);
+    try {
+      const result = await fetchCareerInsight({
+        profile: {
+          name: analysis.profile.name,
+          year: analysis.profile.year,
+          skills: analysis.profile.skills,
+          interests: analysis.profile.interests,
+          domain: analysis.profile.domain,
+          experience: analysis.profile.experience,
+          goal: analysis.profile.goal,
+          weeklyHours: analysis.profile.weeklyHours,
+        },
+        topCareer: {
+          name: topCareer.name,
+          matchPercentage: topCareer.matchPercentage,
+          matchBreakdown: topCareer.matchBreakdown,
+          whyFits: topCareer.whyFits,
+          skillGaps: topCareer.skillGaps,
+          technologies: topCareer.technologies,
+          overview: topCareer.overview,
+        },
+      });
+      setInsight(result);
+    } catch (err) {
+      setInsightError(err instanceof Error ? err.message : "Could not generate AI insight. The existing analysis is still available above.");
+    } finally {
+      setInsightLoading(false);
+    }
+  }
 
   if (!analysis) {
     return (
@@ -117,6 +158,104 @@ export default function ResultsPage() {
         {careers.map((career, i) => (
           <CareerCard key={career.id} career={career} rank={i} />
         ))}
+      </div>
+
+      {/* AI Career Insight */}
+      <div className="mb-10">
+        <button
+          onClick={handleGetInsight}
+          disabled={insightLoading}
+          className="btn-primary group mx-auto flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {insightLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" /> Generating AI Insight...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform" /> Get AI Career Insight
+            </>
+          )}
+        </button>
+
+        {insightError && (
+          <div className="glass-card p-5 mt-6 border-red-500/20 flex items-start gap-3 max-w-3xl mx-auto" style={{ animation: "fadeInUp 0.4s ease-out" }}>
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-red-300 font-medium">AI Insight Unavailable</p>
+              <p className="text-sm text-navy-300 mt-1">{insightError}</p>
+              <p className="text-xs text-navy-400 mt-2">Your career analysis above is still fully available.</p>
+            </div>
+          </div>
+        )}
+
+        {insight && (
+          <div className="glass-card p-6 mt-6 max-w-3xl mx-auto" style={{ animation: "fadeInUp 0.5s ease-out" }}>
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-accent-500/15 border border-accent-500/20 flex items-center justify-center">
+                <Lightbulb className="w-5 h-5 text-accent-400" />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold text-white text-lg">AI Career Insight</h3>
+                <p className="text-xs text-navy-400">Powered by Gemma via Gemini API</p>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <h4 className="text-sm font-semibold text-white">Why This Career Fits You</h4>
+                </div>
+                <p className="text-sm text-navy-200 leading-relaxed pl-6">{insight.whyFits}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Wrench className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-sm font-semibold text-white">Top 3 Skill Gaps</h4>
+                </div>
+                <ul className="pl-6 space-y-1">
+                  {insight.skillGaps.map((gap, i) => (
+                    <li key={i} className="text-sm text-navy-200 flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span> {gap}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Rocket className="w-4 h-4 text-sky-400" />
+                  <h4 className="text-sm font-semibold text-white">Project Suggestions</h4>
+                </div>
+                <ul className="pl-6 space-y-1">
+                  {insight.projectSuggestions.map((proj, i) => (
+                    <li key={i} className="text-sm text-navy-200 flex items-start gap-2">
+                      <span className="text-sky-400 mt-0.5">•</span> {proj}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <BookOpen className="w-4 h-4 text-violet-400" />
+                  <h4 className="text-sm font-semibold text-white">What to Learn Next</h4>
+                </div>
+                <p className="text-sm text-navy-200 leading-relaxed pl-6">{insight.whatToLearnNext}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <MessageSquare className="w-4 h-4 text-accent-400" />
+                  <h4 className="text-sm font-semibold text-white">Career Advice</h4>
+                </div>
+                <p className="text-sm text-navy-200 leading-relaxed pl-6">{insight.careerAdvice}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Actions */}

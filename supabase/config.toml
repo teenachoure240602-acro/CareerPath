@@ -1,2 +1,5 @@
 [functions.generate-career-analysis]
 verify_jwt = false
+
+[functions.gemini-career-insight]
+verify_jwt = false
