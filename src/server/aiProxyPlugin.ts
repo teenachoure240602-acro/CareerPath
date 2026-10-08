@@ -1,9 +1,10 @@
 import type { Plugin } from "vite";
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
-const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com";
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_SMALL_FAST_MODEL ?? "claude-haiku-4-5-20251001";
-const ANTHROPIC_CUSTOM_HEADERS = process.env.ANTHROPIC_CUSTOM_HEADERS ?? "";
+const AI_API_KEY = process.env.AI_API_KEY ?? "";
+const AI_BASE_URL = process.env.AI_BASE_URL ?? "https://api.anthropic.com";
+const AI_MODEL = process.env.AI_MODEL ?? "claude-haiku-4-5-20251001";
+const AI_CUSTOM_HEADERS = process.env.AI_CUSTOM_HEADERS ?? "";
+const REQUEST_TIMEOUT_MS = 30_000;
 
 interface StudentProfileInput {
   name: string;
@@ -89,6 +90,26 @@ function sanitizeJsonResponse(text: string): string {
   return cleaned.trim();
 }
 
+function validateProfile(body: unknown): body is StudentProfileInput {
+  if (!body || typeof body !== "object") return false;
+  const b = body as Record<string, unknown>;
+  return (
+    typeof b.name === "string" &&
+    typeof b.year === "string" &&
+    Array.isArray(b.skills) &&
+    Array.isArray(b.interests) &&
+    typeof b.domain === "string" &&
+    typeof b.experience === "string" &&
+    typeof b.goal === "string" &&
+    typeof b.weeklyHours === "string"
+  );
+}
+
+function sendJson(res: any, status: number, payload: unknown): void {
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(payload));
+}
+
 export function aiProxyPlugin(): Plugin {
   return {
     name: "ai-proxy-plugin",
@@ -98,21 +119,32 @@ export function aiProxyPlugin(): Plugin {
           return next();
         }
 
+        if (!AI_API_KEY) {
+          console.error("AI_API_KEY environment variable is not set");
+          sendJson(res, 503, { error: "AI service is not configured. Set AI_API_KEY in the server environment." });
+          return;
+        }
+
         try {
           const chunks: Buffer[] = [];
           for await (const chunk of req) {
             chunks.push(chunk as Buffer);
           }
-          const body: StudentProfileInput = JSON.parse(Buffer.concat(chunks).toString());
+          const raw: unknown = JSON.parse(Buffer.concat(chunks).toString());
+
+          if (!validateProfile(raw)) {
+            sendJson(res, 400, { error: "Missing or invalid profile fields in request body." });
+            return;
+          }
 
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
-            "x-api-key": ANTHROPIC_API_KEY,
+            "x-api-key": AI_API_KEY,
             "anthropic-version": "2023-06-01",
           };
 
-          if (ANTHROPIC_CUSTOM_HEADERS) {
-            for (const pair of ANTHROPIC_CUSTOM_HEADERS.split(",")) {
+          if (AI_CUSTOM_HEADERS) {
+            for (const pair of AI_CUSTOM_HEADERS.split(",")) {
               const [key, ...valParts] = pair.split(":");
               if (key && valParts.length) {
                 headers[key.trim()] = valParts.join(":").trim();
@@ -120,26 +152,39 @@ export function aiProxyPlugin(): Plugin {
             }
           }
 
-          const anthropicResponse = await fetch(
-            `${ANTHROPIC_BASE_URL}/v1/messages`,
-            {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                model: ANTHROPIC_MODEL,
-                max_tokens: 8000,
-                messages: [
-                  { role: "user", content: `${SYSTEM_PROMPT}\n\n${buildUserProfile(body)}` },
-                ],
-              }),
-            }
-          );
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+          let anthropicResponse: Response;
+          try {
+            anthropicResponse = await fetch(
+              `${AI_BASE_URL}/v1/messages`,
+              {
+                method: "POST",
+                headers,
+                signal: controller.signal,
+                body: JSON.stringify({
+                  model: AI_MODEL,
+                  max_tokens: 8000,
+                  messages: [
+                    { role: "user", content: `${SYSTEM_PROMPT}\n\n${buildUserProfile(raw)}` },
+                  ],
+                }),
+              }
+            );
+          } catch (fetchErr) {
+            clearTimeout(timeout);
+            const isAbort = fetchErr instanceof Error && fetchErr.name === "AbortError";
+            console.error(isAbort ? "AI request timed out" : "AI fetch failed", fetchErr);
+            sendJson(res, 504, { error: isAbort ? "AI service timed out. Please try again." : "Could not reach the AI service." });
+            return;
+          }
+          clearTimeout(timeout);
 
           if (!anthropicResponse.ok) {
             const errorText = await anthropicResponse.text();
-            console.error("Anthropic API error:", anthropicResponse.status, errorText);
-            res.writeHead(502, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: `AI service error (${anthropicResponse.status})` }));
+            console.error("AI API error:", anthropicResponse.status, errorText);
+            sendJson(res, 502, { error: `AI service error (${anthropicResponse.status})` });
             return;
           }
 
@@ -147,8 +192,7 @@ export function aiProxyPlugin(): Plugin {
           const textContent = anthropicData.content?.[0]?.text;
 
           if (!textContent) {
-            res.writeHead(502, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Empty response from AI service" }));
+            sendJson(res, 502, { error: "Empty response from AI service" });
             return;
           }
 
@@ -159,17 +203,14 @@ export function aiProxyPlugin(): Plugin {
             parsed = JSON.parse(cleanedJson);
           } catch {
             console.error("Failed to parse AI response as JSON");
-            res.writeHead(502, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Invalid JSON from AI service" }));
+            sendJson(res, 502, { error: "Invalid JSON from AI service" });
             return;
           }
 
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(parsed));
+          sendJson(res, 200, parsed);
         } catch (err) {
           console.error("AI proxy error:", err);
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: (err as Error).message || "Internal server error" }));
+          sendJson(res, 500, { error: "Internal server error" });
         }
       });
     },

@@ -1,12 +1,13 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, Apikey",
 };
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const ANTHROPIC_BASE_URL = Deno.env.get("ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com";
-const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_SMALL_FAST_MODEL") ?? "claude-haiku-4-5-20251001";
+const AI_API_KEY = Deno.env.get("AI_API_KEY") ?? "";
+const AI_BASE_URL = Deno.env.get("AI_BASE_URL") ?? "https://api.anthropic.com";
+const AI_MODEL = Deno.env.get("AI_MODEL") ?? "claude-haiku-4-5-20251001";
+const REQUEST_TIMEOUT_MS = 30_000;
 
 interface StudentProfileInput {
   name: string;
@@ -19,8 +20,7 @@ interface StudentProfileInput {
   weeklyHours: string;
 }
 
-function buildSystemPrompt(): string {
-  return `You are an expert career counselor for college students. You analyze a student's profile and generate exactly THREE realistic, personalized career paths.
+const SYSTEM_PROMPT = `You are an expert career counselor for college students. You analyze a student's profile and generate exactly THREE realistic, personalized career paths.
 
 Your analysis must be SPECIFIC to the student's submitted profile:
 - If the student has weak skills, clearly identify which skills are weak and what they need to learn.
@@ -37,21 +37,21 @@ Return a JSON object with exactly this structure (no markdown, no explanation, j
   "careers": [
     {
       "careerName": "string",
-      "matchScore": number (0-100),
+      "matchScore": number,
       "overview": "string - 2-3 sentence career overview tailored to why it suits this student",
-      "whyItFits": ["string", "string", "string"] - 3-4 specific reasons tied to the student's profile,
-      "currentStrengths": ["string"] - skills from the student's profile that are relevant,
+      "whyItFits": ["string", "string", "string"],
+      "currentStrengths": ["string"],
       "skillGaps": [{"skill": "string", "importance": "Critical|Important|Beneficial"}],
-      "technologies": ["string"] - 6-10 technologies to learn for this career,
+      "technologies": ["string"],
       "difficulty": "Moderate|Challenging|Demanding",
-      "preparationTime": "string - e.g. '6-9 months focused learning'",
+      "preparationTime": "string",
       "year1": {"focus": "string", "topics": ["string"], "milestone": "string"},
       "year2": {"focus": "string", "topics": ["string"], "milestone": "string"},
       "year3": {"focus": "string", "topics": ["string"], "milestone": "string"},
       "year4": {"focus": "string", "topics": ["string"], "milestone": "string"},
       "recommendedProjects": [{"title": "string", "description": "string", "difficulty": "Beginner|Intermediate|Advanced", "technologies": ["string"]}],
-      "internshipPreparation": ["string"] - 4-6 specific steps,
-      "placementPreparation": ["string"] - 4-6 specific steps,
+      "internshipPreparation": ["string"],
+      "placementPreparation": ["string"],
       "thirtyDayPlan": [{"week": "Week 1", "learningGoals": ["string"], "topics": ["string"], "miniTask": "string", "projectTask": "string"}]
     }
   ]
@@ -64,8 +64,8 @@ Rules:
 - For "Not Sure" goal students, pick 3 diverse careers across different domains.
 - If the student is already in 3rd/4th year or Graduate, adjust year1/year2 topics to be more accelerated or mark them as "catch-up" phases.
 - Skill gaps must reference real technologies/skills needed for that career that the student doesn't have.
-- Each career should have 4 recommended projects and 4 weeks in the thirtyDayPlan.`;
-}
+- Each career should have 4 recommended projects and 4 weeks in the thirtyDayPlan.
+- Return ONLY valid JSON, no markdown fences, no preamble.`;
 
 function buildUserProfile(profile: StudentProfileInput): string {
   return `Student Profile:
@@ -83,19 +83,29 @@ Analyze this profile and generate exactly 3 personalized career paths. Return on
 
 function sanitizeJsonResponse(text: string): string {
   let cleaned = text.trim();
-
-  // Remove markdown code fences if present
   cleaned = cleaned.replace(/^```json\s*/i, "").replace(/^```\s*/i, "");
   cleaned = cleaned.replace(/\s*```$/i, "");
-
-  // Find the first { and last } to extract the JSON object
   const firstBrace = cleaned.indexOf("{");
   const lastBrace = cleaned.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     cleaned = cleaned.substring(firstBrace, lastBrace + 1);
   }
-
   return cleaned.trim();
+}
+
+function validateProfile(body: unknown): body is StudentProfileInput {
+  if (!body || typeof body !== "object") return false;
+  const b = body as Record<string, unknown>;
+  return (
+    typeof b.name === "string" &&
+    typeof b.year === "string" &&
+    Array.isArray(b.skills) &&
+    Array.isArray(b.interests) &&
+    typeof b.domain === "string" &&
+    typeof b.experience === "string" &&
+    typeof b.goal === "string" &&
+    typeof b.weeklyHours === "string"
+  );
 }
 
 function validateCareers(data: unknown): boolean {
@@ -130,41 +140,64 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  try {
-    const profile: StudentProfileInput = await req.json();
+  if (!AI_API_KEY) {
+    console.error("AI_API_KEY secret is not set");
+    return new Response(
+      JSON.stringify({ error: "AI service is not configured. Set the AI_API_KEY secret." }),
+      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 
-    if (!profile.skills || !profile.interests || !profile.domain) {
+  try {
+    const raw: unknown = await req.json();
+
+    if (!validateProfile(raw)) {
       return new Response(
-        JSON.stringify({ error: "Missing required profile fields" }),
+        JSON.stringify({ error: "Missing or invalid profile fields in request body." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const systemPrompt = buildSystemPrompt();
-    const userMessage = buildUserProfile(profile);
+    const userMessage = buildUserProfile(raw);
 
-    const anthropicResponse = await fetch(
-      `${ANTHROPIC_BASE_URL}/v1/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: ANTHROPIC_MODEL,
-          max_tokens: 8000,
-          messages: [
-            { role: "user", content: `${systemPrompt}\n\n${userMessage}` }
-          ],
-        }),
-      }
-    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let anthropicResponse: Response;
+    try {
+      anthropicResponse = await fetch(
+        `${AI_BASE_URL}/v1/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": AI_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: AI_MODEL,
+            max_tokens: 8000,
+            messages: [
+              { role: "user", content: `${SYSTEM_PROMPT}\n\n${userMessage}` }
+            ],
+          }),
+        }
+      );
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      const isAbort = fetchErr instanceof Error && fetchErr.name === "AbortError";
+      console.error(isAbort ? "AI request timed out" : "AI fetch failed", fetchErr);
+      return new Response(
+        JSON.stringify({ error: isAbort ? "AI service timed out. Please try again." : "Could not reach the AI service." }),
+        { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    clearTimeout(timeout);
 
     if (!anthropicResponse.ok) {
       const errorText = await anthropicResponse.text();
-      console.error("Anthropic API error:", anthropicResponse.status, errorText);
+      console.error("AI API error:", anthropicResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: `AI service error (${anthropicResponse.status})` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -210,7 +243,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error("Edge function error:", err);
     return new Response(
-      JSON.stringify({ error: err.message || "Internal server error" }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

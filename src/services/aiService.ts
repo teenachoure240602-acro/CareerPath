@@ -157,8 +157,14 @@ export async function generateAICareerAnalysis(profile: StudentProfile): Promise
   });
 
   if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`AI service error: ${response.status} — ${errorBody}`);
+    let message = `AI service unavailable (status ${response.status})`;
+    try {
+      const errorBody = JSON.parse(await response.text());
+      if (errorBody?.error) message = errorBody.error;
+    } catch {
+      // response had no JSON body — use the generic message
+    }
+    throw new Error(message);
   }
 
   const data: AIResponse = await response.json();
