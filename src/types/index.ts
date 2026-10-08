@@ -42,12 +42,18 @@ export interface WeekPlan {
   projectTask: string;
 }
 
+export interface MatchBreakdown {
+  label: string;
+  score: number;
+}
+
 export interface CareerPath {
   id: string;
   name: string;
   icon: string;
   tagline: string;
   matchPercentage: number;
+  matchBreakdown: MatchBreakdown[];
   explanation: string;
   whyFits: string[];
   currentStrengths: string[];

@@ -6,14 +6,21 @@ import type {
   YearPlan,
   ProjectRecommendation,
   WeekPlan,
+  MatchBreakdown,
 } from "../types";
 import { generateAnalysis as generateMockAnalysis } from "../data/careerEngine";
 import { iconForCareerName } from "../utils/careerIcons";
 
 // Raw shape returned by the AI (field names differ from our internal CareerPath type)
+interface AIMatchBreakdownItem {
+  label: string;
+  score: number;
+}
+
 interface AICareer {
   careerName: string;
   matchScore: number;
+  matchBreakdown?: AIMatchBreakdownItem[];
   overview: string;
   whyItFits: string[];
   currentStrengths: string[];
@@ -88,6 +95,20 @@ function mapWeekPlan(raw: {
   };
 }
 
+function mapMatchBreakdown(raw: AIMatchBreakdownItem[] | undefined): MatchBreakdown[] {
+  const fallback: MatchBreakdown[] = [
+    { label: "Skill Match", score: 75 },
+    { label: "Interest Match", score: 75 },
+    { label: "Goal Match", score: 75 },
+    { label: "Experience Match", score: 75 },
+  ];
+  if (!Array.isArray(raw) || raw.length === 0) return fallback;
+  return raw.map((item) => ({
+    label: item.label || "Match",
+    score: Math.max(0, Math.min(100, Math.round(item.score))),
+  }));
+}
+
 function mapAICareer(raw: AICareer, index: number): CareerPath {
   const id = slugify(raw.careerName);
   const iconName = iconForCareerName(raw.careerName);
@@ -121,6 +142,7 @@ function mapAICareer(raw: AICareer, index: number): CareerPath {
     icon: iconName,
     tagline,
     matchPercentage: Math.max(0, Math.min(100, Math.round(raw.matchScore))),
+    matchBreakdown: mapMatchBreakdown(raw.matchBreakdown),
     explanation: raw.overview,
     whyFits: Array.isArray(raw.whyItFits) ? raw.whyItFits : [],
     currentStrengths: Array.isArray(raw.currentStrengths) ? raw.currentStrengths : [],

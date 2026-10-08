@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, TrendingUp, AlertCircle } from "lucide-react";
+import { ArrowRight, TrendingUp, AlertCircle, Lightbulb, BarChart3 } from "lucide-react";
 import type { CareerPath } from "../types";
 import { useApp } from "../context/AppContext";
 import { getCareerIcon } from "../utils/careerIcons";
+import MatchBreakdown from "./MatchBreakdown";
 
 export default function CareerCard({ career, rank }: { career: CareerPath; rank: number }) {
   const { setProfile, analysis } = useApp();
@@ -52,6 +53,31 @@ export default function CareerCard({ career, rank }: { career: CareerPath; rank:
       </div>
 
       <p className="text-sm text-navy-200 mb-5 leading-relaxed">{career.explanation}</p>
+
+      {/* Match Breakdown */}
+      {career.matchBreakdown && career.matchBreakdown.length > 0 && (
+        <div className="mb-5">
+          <h4 className="text-xs font-semibold text-accent-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <BarChart3 className="w-3.5 h-3.5" /> Why This Match Score?
+          </h4>
+          <MatchBreakdown items={career.matchBreakdown} delay={rank * 150 + 200} />
+        </div>
+      )}
+
+      {/* Why This Career? */}
+      <div className="mb-5">
+        <h4 className="text-xs font-semibold text-sky-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <Lightbulb className="w-3.5 h-3.5" /> Why This Career?
+        </h4>
+        <ul className="space-y-2">
+          {career.whyFits.slice(0, 5).map((reason, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-navy-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 mt-1.5 shrink-0" />
+              <span className="leading-relaxed">{reason}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="space-y-4 mb-5">
         <div>

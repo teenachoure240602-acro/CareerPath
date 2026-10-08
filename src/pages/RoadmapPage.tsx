@@ -22,7 +22,7 @@ import type { CareerPath } from "../types";
 function getCareer(id: string): CareerPath | null {
   const template = CAREER_LIBRARY[id];
   if (!template) return null;
-  return { ...template, matchPercentage: 0, currentStrengths: [], skillGaps: [], whyFits: [] };
+  return { ...template, matchPercentage: 0, matchBreakdown: [], currentStrengths: [], skillGaps: [], whyFits: [] };
 }
 
 export default function RoadmapPage() {

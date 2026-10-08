@@ -6,6 +6,7 @@ import type {
   ProjectRecommendation,
   WeekPlan,
   SkillGap,
+  MatchBreakdown,
 } from "../types";
 
 const SKILL_KEYWORDS: Record<string, string[]> = {
@@ -33,7 +34,7 @@ function countSkillMatches(skills: string[], domain: string): number {
   return count;
 }
 
-const CAREER_TEMPLATES: Record<string, Omit<CareerPath, "matchPercentage" | "currentStrengths" | "skillGaps" | "whyFits">> = {
+const CAREER_TEMPLATES: Record<string, Omit<CareerPath, "matchPercentage" | "matchBreakdown" | "currentStrengths" | "skillGaps" | "whyFits">> = {
   "full-stack-developer": {
     id: "full-stack-developer",
     name: "Full Stack Developer",
@@ -183,39 +184,55 @@ const CAREER_TEMPLATES: Record<string, Omit<CareerPath, "matchPercentage" | "cur
   },
 };
 
-function computeMatch(profile: StudentProfile, careerId: string): number {
-  const baseMatch: Record<string, number> = {
-    "full-stack-developer": 72,
-    "ai-ml-engineer": 68,
-    "data-engineer": 70,
-  };
-
-  let match = baseMatch[careerId] || 65;
-
+function computeMatchBreakdown(profile: StudentProfile, careerId: string): MatchBreakdown[] {
   const domainToCareer: Record<string, string> = {
     "Web Development": "full-stack-developer",
     "AI/ML": "ai-ml-engineer",
     Data: "data-engineer",
   };
 
-  const preferredCareer = domainToCareer[profile.domain];
-  if (preferredCareer === careerId) {
-    match += 15;
-  }
+  const isPreferredDomain = domainToCareer[profile.domain] === careerId;
 
+  // Skill Match: how many of the student's skills overlap with the career domain
   const skillMatches = countSkillMatches(profile.skills, profile.domain);
-  match += Math.min(skillMatches * 3, 12);
+  const skillScore = Math.min(55 + skillMatches * 12, 98);
 
-  const expBoost: Record<string, number> = { Beginner: 0, Intermediate: 3, Advanced: 6 };
-  match += expBoost[profile.experience] || 0;
-
-  const hoursBoost: Record<string, number> = { "5 hours": 0, "10 hours": 2, "15 hours": 4, "20+ hours": 6 };
-  match += hoursBoost[profile.weeklyHours] || 0;
-
+  // Interest Match: how many interests overlap with the career domain
   const interestMatches = countSkillMatches(profile.interests, profile.domain);
-  match += Math.min(interestMatches * 2, 6);
+  const interestScore = Math.min(50 + interestMatches * 15, 95);
 
-  return Math.min(Math.round(match), 98);
+  // Goal Match: how well the career goal aligns with this path
+  const goalScoreMap: Record<string, number> = {
+    Internship: 88,
+    Placement: 92,
+    "Higher Studies": careerId === "ai-ml-engineer" ? 90 : 72,
+    Entrepreneurship: careerId === "full-stack-developer" ? 85 : 70,
+    "Not Sure": 65,
+  };
+  const goalScore = goalScoreMap[profile.goal] ?? 70;
+
+  // Experience Match: how experience level fits the career's learning curve
+  const expScoreMap: Record<string, number> = {
+    Beginner: careerId === "ai-ml-engineer" ? 65 : 75,
+    Intermediate: 82,
+    Advanced: 90,
+  };
+  let expScore = expScoreMap[profile.experience] ?? 70;
+  if (isPreferredDomain) expScore = Math.min(expScore + 5, 95);
+
+  return [
+    { label: "Skill Match", score: skillScore },
+    { label: "Interest Match", score: interestScore },
+    { label: "Goal Match", score: goalScore },
+    { label: "Experience Match", score: expScore },
+  ];
+}
+
+function computeMatch(profile: StudentProfile, careerId: string): number {
+  const breakdown = computeMatchBreakdown(profile, careerId);
+  const weights = [0.35, 0.25, 0.25, 0.15];
+  const weighted = breakdown.reduce((sum, b, i) => sum + b.score * weights[i], 0);
+  return Math.min(Math.round(weighted), 98);
 }
 
 function getCurrentStrengths(profile: StudentProfile, careerId: string): string[] {
@@ -316,6 +333,7 @@ function generateCareer(profile: StudentProfile, careerId: string): CareerPath {
   return {
     ...template,
     matchPercentage: computeMatch(profile, careerId),
+    matchBreakdown: computeMatchBreakdown(profile, careerId),
     currentStrengths: getCurrentStrengths(profile, careerId),
     skillGaps: getSkillGaps(profile, careerId),
     whyFits: getWhyFits(profile, careerId),

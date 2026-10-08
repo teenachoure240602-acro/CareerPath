@@ -15,6 +15,7 @@ export default function ComparePage() {
     careers = Object.values(CAREER_LIBRARY).map((t) => ({
       ...t,
       matchPercentage: 0,
+      matchBreakdown: [],
       currentStrengths: [],
       skillGaps: [],
       whyFits: [],

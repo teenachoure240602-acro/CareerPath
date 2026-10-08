@@ -35,8 +35,14 @@ Return a JSON object with exactly this structure (no markdown, no explanation, j
     {
       "careerName": "string",
       "matchScore": number,
+      "matchBreakdown": [
+        {"label": "Skill Match", "score": number},
+        {"label": "Interest Match", "score": number},
+        {"label": "Goal Match", "score": number},
+        {"label": "Experience Match", "score": number}
+      ],
       "overview": "string - 2-3 sentence career overview tailored to why it suits this student",
-      "whyItFits": ["string", "string", "string"],
+      "whyItFits": ["string", "string", "string", "string", "string"],
       "currentStrengths": ["string"],
       "skillGaps": [{"skill": "string", "importance": "Critical|Important|Beneficial"}],
       "technologies": ["string"],
@@ -62,6 +68,8 @@ Rules:
 - If the student is already in 3rd/4th year or Graduate, adjust year1/year2 topics to be more accelerated or mark them as "catch-up" phases.
 - Skill gaps must reference real technologies/skills needed for that career that the student doesn't have.
 - Each career should have 4 recommended projects and 4 weeks in the thirtyDayPlan.
+- matchBreakdown scores must each be 0-100 and the weighted average of the four sub-scores should roughly equal the overall matchScore.
+- whyItFits must contain 3-5 specific reasons referencing the student's actual skills, interests, domain, experience, or goal.
 - Return ONLY valid JSON, no markdown fences, no preamble.`;
 
 function buildUserProfile(profile: StudentProfileInput): string {
