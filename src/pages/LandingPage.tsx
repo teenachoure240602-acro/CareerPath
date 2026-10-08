@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Code2,
@@ -12,7 +12,14 @@ import {
   CalendarDays,
   Rocket,
   TrendingUp,
+  Wand2,
+  FlaskConical,
 } from "lucide-react";
+import { useState } from "react";
+import { useApp } from "../context/AppContext";
+import { DEMO_PROFILES } from "../data/demoProfiles";
+import { generateAnalysis } from "../data/careerEngine";
+import { getCareerIcon } from "../utils/careerIcons";
 
 const FEATURE_CAREERS = [
   {
@@ -63,6 +70,21 @@ const FEATURES = [
 ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const { setProfile, setAnalysis, setIsDemo } = useApp();
+  const [demoLoading, setDemoLoading] = useState<string | null>(null);
+
+  const handleDemoSelect = (demoId: string) => {
+    const demo = DEMO_PROFILES.find((d) => d.id === demoId);
+    if (!demo) return;
+    setDemoLoading(demoId);
+    const result = generateAnalysis(demo.profile);
+    setProfile(demo.profile);
+    setAnalysis(result);
+    setIsDemo(true);
+    setTimeout(() => navigate("/results"), 800);
+  };
+
   return (
     <div className="animate-fade-in">
       {/* Hero Section */}
@@ -113,6 +135,67 @@ export default function LandingPage() {
             );
           })}
         </div>
+      </section>
+
+      {/* Demo Mode Section */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 mb-4">
+            <FlaskConical className="w-4 h-4 text-amber-400" />
+            <span className="text-sm text-amber-300">No signup needed</span>
+          </div>
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-white mb-3">Try a Demo Profile</h2>
+          <p className="text-navy-300 text-lg max-w-2xl mx-auto">
+            See how it works instantly with a sample student profile. No form to fill — just pick one and explore.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {DEMO_PROFILES.map((demo, i) => {
+            const Icon = getCareerIcon(demo.icon);
+            const isLoading = demoLoading === demo.id;
+            return (
+              <button
+                key={demo.id}
+                onClick={() => handleDemoSelect(demo.id)}
+                disabled={demoLoading !== null}
+                className="glass-card p-6 text-left hover:-translate-y-2 transition-all duration-300 group disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ animation: `fadeInUp 0.5s ease-out ${i * 0.12}s both` }}
+              >
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${demo.gradient} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
+                  <Icon className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="font-display font-bold text-lg text-white mb-2">{demo.label}</h3>
+                <p className="text-sm text-navy-300 leading-relaxed mb-4">{demo.description}</p>
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {demo.profile.skills.slice(0, 4).map((s) => (
+                    <span key={s} className="text-xs px-2 py-0.5 rounded-md bg-white/5 text-navy-300 border border-white/10">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 text-sm font-medium text-accent-300 group-hover:text-accent-200 transition-colors">
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-accent-400/30 border-t-accent-400 animate-spin" />
+                      Loading demo...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-4 h-4" />
+                      Try this profile
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-center text-xs text-navy-400 mt-6">
+          Demo profiles use sample data labeled throughout the app. Results are generated locally and work even without AI service availability.
+        </p>
       </section>
 
       {/* How It Works */}
@@ -184,10 +267,15 @@ export default function LandingPage() {
           <p className="text-navy-300 text-lg mb-8 max-w-2xl mx-auto">
             Join thousands of students who've found their direction. It takes less than 5 minutes.
           </p>
-          <Link to="/profile" className="btn-primary text-lg px-8 py-4 group">
-            Start Your Analysis
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link to="/profile" className="btn-primary text-lg px-8 py-4 group">
+              Start Your Analysis
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <a href="#demo" className="btn-secondary text-lg px-8 py-4">
+              <FlaskConical className="w-5 h-5" /> Try a Demo
+            </a>
+          </div>
         </div>
       </section>
     </div>

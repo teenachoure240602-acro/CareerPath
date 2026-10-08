@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
-import { Sparkles, GitCompare, CalendarDays, User, GraduationCap, Code, Target, Clock, Layers, Gauge } from "lucide-react";
+import { Sparkles, GitCompare, CalendarDays, User, GraduationCap, Code, Target, Clock, Layers, Gauge, FlaskConical, ArrowRight } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import CareerCard from "../components/CareerCard";
 
 export default function ResultsPage() {
-  const { analysis } = useApp();
+  const { analysis, isDemo } = useApp();
 
   if (!analysis) {
     return (
@@ -39,11 +39,41 @@ export default function ResultsPage() {
         <p className="text-navy-300 text-lg">Three personalized career paths based on your profile</p>
       </div>
 
+      {/* Demo Data Banner */}
+      {isDemo && (
+        <div
+          id="demo-banner"
+          className="glass-card p-5 mb-8 border-amber-500/20 flex flex-col sm:flex-row items-center gap-4"
+          style={{ animation: "fadeInUp 0.4s ease-out" }}
+        >
+          <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0">
+            <FlaskConical className="w-6 h-6 text-amber-400" />
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <h2 className="font-display font-semibold text-white mb-0.5">You're viewing sample data</h2>
+            <p className="text-sm text-navy-300">
+              This is a demo profile showing how the analysis looks. Build your own profile for personalized results.
+            </p>
+          </div>
+          <Link to="/profile" className="btn-primary text-sm shrink-0 group">
+            Build My Own Profile
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </Link>
+        </div>
+      )}
+
       {/* Profile Summary */}
       <div className="glass-card p-6 mb-10" style={{ animation: "fadeInUp 0.5s ease-out" }}>
-        <h2 className="font-display font-semibold text-lg text-white mb-4 flex items-center gap-2">
-          <User className="w-5 h-5 text-accent-400" /> Profile Summary
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display font-semibold text-lg text-white flex items-center gap-2">
+            <User className="w-5 h-5 text-accent-400" /> Profile Summary
+          </h2>
+          {isDemo && (
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/20 font-medium">
+              Sample Profile
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {profileItems.map((item) => {
             const Icon = item.icon;

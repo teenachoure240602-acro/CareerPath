@@ -45,7 +45,7 @@ const INTEREST_SUGGESTIONS = ["Web Development", "AI/ML", "Data Science", "Cyber
 
 export default function ProfileForm() {
   const navigate = useNavigate();
-  const { setProfile, setAnalysis } = useApp();
+  const { setProfile, setAnalysis, setIsDemo } = useApp();
   const [step, setStep] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -106,6 +106,7 @@ export default function ProfileForm() {
       const result = await generateCareerAnalysisWithFallback(profile);
       setProfile(profile);
       setAnalysis(result);
+      setIsDemo(false);
       navigate("/results");
     } catch (err) {
       console.error("Career analysis failed:", err);

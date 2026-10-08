@@ -6,6 +6,8 @@ interface AppContextType {
   setProfile: (p: StudentProfile | null) => void;
   analysis: CareerAnalysis | null;
   setAnalysis: (a: CareerAnalysis | null) => void;
+  isDemo: boolean;
+  setIsDemo: (v: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -13,9 +15,10 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [analysis, setAnalysis] = useState<CareerAnalysis | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
 
   return (
-    <AppContext.Provider value={{ profile, setProfile, analysis, setAnalysis }}>
+    <AppContext.Provider value={{ profile, setProfile, analysis, setAnalysis, isDemo, setIsDemo }}>
       {children}
     </AppContext.Provider>
   );
